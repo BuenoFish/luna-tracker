@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wo ist Luna? 🐱</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0e17;
+      --card: #221f35;
+      --accent: #ff8c42;
+      --accent2: #c77dff;
+      --green: #4ade80;
+      --red: #f87171;
+      --text: #fffffe;
+      --muted: #a7a9be;
+      --glow: rgba(255,140,66,0.3);
+      --glow2: rgba(199,125,255,0.2);
+      --glow-green: rgba(74,222,128,0.3);
+      --glow-red: rgba(248,113,113,0.3);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--text); font-family:'DM Mono',monospace; min-height:100vh; overflow-x:hidden; }
+    body::before { content:''; position:fixed; inset:0; background: radial-gradient(ellipse 60% 40% at 20% 20%,rgba(199,125,255,0.08) 0%,transparent 60%), radial-gradient(ellipse 50% 50% at 80% 80%,rgba(255,140,66,0.06) 0%,transparent 60%); pointer-events:none; z-index:0; }
+
+    .container { position:relative; z-index:1; max-width:980px; margin:0 auto; padding:40px 24px 60px; }
+
+    /* ── Header ── */
+    .header { text-align:center; margin-bottom:36px; animation:fadeDown 0.8s ease both; }
+    .header .eyebrow { font-size:11px; letter-spacing:4px; color:var(--accent); text-transform:uppercase; margin-bottom:12px; opacity:.8; }
+    .header h1 { font-family:'Playfair Display',serif; font-size:clamp(40px,8vw,70px); font-weight:700; line-height:1; margin-bottom:8px; background:linear-gradient(135deg,var(--text) 0%,var(--accent2) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .header .subtitle { font-size:13px; color:var(--muted); letter-spacing:1px; }
+    .cat-emoji { font-size:48px; display:block; margin-bottom:16px; animation:float 3s ease-in-out infinite; }
+
+    /* ── Score bar ── */
+    .score-bar { display:flex; gap:12px; justify-content:center; margin-bottom:28px; animation:fadeUp 0.6s 0.15s ease both; flex-wrap:wrap; }
+    .score-pill { background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:40px; padding:8px 20px; font-size:12px; letter-spacing:2px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+    .score-pill .val { font-family:'Playfair Display',serif; font-size:20px; color:var(--text); }
+    .score-pill.correct .val { color:var(--green); }
+    .score-pill.wrong .val { color:var(--red); }
+    .score-pill.streak .val { color:var(--accent); }
+
+    /* ══════════════════════════════
+       PHASE 1 – GUESS VIEW
+    ══════════════════════════════ */
+    #guessView { animation:fadeUp 0.7s ease both; }
+
+    .guess-prompt { text-align:center; margin-bottom:24px; }
+    .guess-prompt p { font-size:13px; color:var(--muted); letter-spacing:1px; margin-bottom:6px; }
+    .guess-prompt strong { font-family:'Playfair Display',serif; font-size:22px; color:var(--text); font-style:italic; }
+
+    .guess-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:16px; }
+
+    .guess-room { background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:0; cursor:pointer; transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); position:relative; overflow:hidden; }
+    .guess-room:hover { border-color:var(--accent2); transform:scale(1.03); box-shadow:0 0 20px var(--glow2); }
+    .guess-room.selected { border-color:var(--accent2); background:rgba(199,125,255,0.1); transform:scale(1.04); box-shadow:0 0 25px var(--glow2); }
+    .guess-room-inner { padding:16px; }
+    .guess-room-icon { font-size:28px; margin-bottom:8px; display:block; }
+    .guess-room-name { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+    .guess-room.selected .guess-room-name { color:var(--accent2); }
+
+    /* spot options inside guess card */
+    .spot-options { display:flex; flex-direction:column; gap:5px; }
+    .spot-option { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:7px 10px; font-size:10px; letter-spacing:1px; color:var(--muted); cursor:pointer; transition:all 0.2s ease; display:flex; align-items:center; gap:6px; }
+    .spot-option:hover { border-color:var(--accent2); color:var(--text); background:rgba(199,125,255,0.08); }
+    .spot-option.selected { border-color:var(--accent2); color:var(--accent2); background:rgba(199,125,255,0.14); }
+
+    .guess-confirm { width:100%; padding:16px; background:linear-gradient(135deg,rgba(199,125,255,0.15),rgba(255,140,66,0.1)); border:1px solid rgba(199,125,255,0.4); border-radius:12px; color:var(--text); font-family:'DM Mono',monospace; font-size:13px; letter-spacing:3px; text-transform:uppercase; cursor:pointer; transition:all 0.3s ease; opacity:.4; pointer-events:none; }
+    .guess-confirm.ready { opacity:1; pointer-events:all; }
+    .guess-confirm.ready:hover { background:linear-gradient(135deg,rgba(199,125,255,0.25),rgba(255,140,66,0.2)); transform:scale(1.01); box-shadow:0 0 30px var(--glow2); }
+
+    /* ══════════════════════════════
+       PHASE 2 – RESULT VIEW
+    ══════════════════════════════ */
+    #resultView { display:none; }
+    #resultView.visible { display:block; animation:fadeUp 0.6s ease both; }
+
+    /* Result banner */
+    .result-banner { border-radius:14px; padding:20px 28px; margin-bottom:24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+    .result-banner.correct { background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.4); }
+    .result-banner.wrong   { background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.35); }
+    .result-banner.partial { background:rgba(255,140,66,0.08); border:1px solid rgba(255,140,66,0.4); }
+    .result-icon { font-size:36px; flex-shrink:0; }
+    .result-title { font-family:'Playfair Display',serif; font-size:22px; margin-bottom:4px; }
+    .result-banner.correct .result-title { color:var(--green); }
+    .result-banner.wrong   .result-title { color:var(--red); }
+    .result-banner.partial .result-title { color:var(--accent); }
+    .result-sub { font-size:12px; color:var(--muted); line-height:1.6; }
+
+    /* Total bar */
+    .total-warning { background:var(--card); border:1px solid rgba(255,140,66,0.3); border-radius:12px; padding:16px 24px; margin-bottom:24px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    .total-warning .label { font-size:11px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+    .total-display { font-family:'Playfair Display',serif; font-size:28px; color:var(--accent); }
+    .total-display span { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; margin-left:8px; }
+    .never-hundred { font-size:11px; color:var(--accent2); font-style:italic; opacity:.8; }
+
+    /* Floor plan */
+    .floorplan { display:grid; grid-template-columns:1fr 1.4fr 1fr; gap:8px; margin-bottom:24px; }
+    .room { background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:18px 18px 14px; position:relative; overflow:hidden; min-height:130px; display:flex; flex-direction:column; justify-content:space-between; transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+    .room::before { content:''; position:absolute; inset:0; opacity:0; transition:opacity 0.3s; border-radius:12px; }
+    .room.active::before { opacity:1; background:radial-gradient(ellipse at 50% 50%,var(--glow) 0%,transparent 70%); }
+    .room.active { border-color:var(--accent); transform:scale(1.02); box-shadow:0 0 30px var(--glow); animation:pulse-glow 2s ease-in-out infinite; }
+    .room.guessed-correct { border-color:var(--green) !important; box-shadow:0 0 28px var(--glow-green) !important; animation:pulse-green 2s ease-in-out infinite !important; }
+    .room.guessed-correct::before { opacity:1 !important; background:radial-gradient(ellipse at 50% 50%,rgba(74,222,128,0.2) 0%,transparent 70%) !important; }
+    .room.guessed-wrong { border-color:var(--red) !important; box-shadow:0 0 20px var(--glow-red) !important; }
+    .room-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .room-icon { font-size:22px; }
+    .room-name { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+    .room.active .room-name, .room.guessed-correct .room-name { color:var(--accent); }
+    .room.guessed-correct .room-name { color:var(--green) !important; }
+    .room.guessed-wrong .room-name { color:var(--red) !important; }
+    .room-spot { font-size:10px; color:var(--accent2); letter-spacing:1px; margin-top:2px; min-height:14px; opacity:0; transition:opacity 0.4s ease; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .room.active .room-spot, .room.guessed-correct .room-spot { opacity:1; }
+    .room-prob { font-family:'Playfair Display',serif; font-size:34px; font-weight:700; color:var(--text); line-height:1; transition:all 0.5s ease; }
+    .room.active .room-prob { color:var(--accent); text-shadow:0 0 20px var(--glow); }
+    .room.guessed-correct .room-prob { color:var(--green) !important; text-shadow:0 0 20px var(--glow-green) !important; }
+    .room.guessed-wrong .room-prob { color:var(--red) !important; }
+    .room-bar { height:3px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; margin-top:8px; }
+    .room-bar-fill { height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:2px; transition:width 1s cubic-bezier(0.34,1.56,0.64,1); }
+    .room.active .room-bar-fill { background:var(--accent); box-shadow:0 0 8px var(--glow); }
+    .room.guessed-correct .room-bar-fill { background:var(--green) !important; box-shadow:0 0 8px var(--glow-green) !important; }
+    .room.guessed-wrong .room-bar-fill { background:var(--red) !important; }
+    .cat-indicator { position:absolute; top:11px; right:11px; font-size:20px; opacity:0; transition:opacity 0.4s ease; animation:catbob 2s ease-in-out infinite; }
+    .room.active .cat-indicator, .room.guessed-correct .cat-indicator { opacity:1; }
+    /* Guess badge on room */
+    .guess-badge { position:absolute; bottom:10px; right:10px; font-size:9px; letter-spacing:1px; padding:3px 7px; border-radius:20px; opacity:0; transition:opacity 0.4s 0.3s; }
+    .room.guessed-correct .guess-badge { opacity:1; background:rgba(74,222,128,0.2); border:1px solid rgba(74,222,128,0.5); color:var(--green); }
+    .room.guessed-wrong .guess-badge { opacity:1; background:rgba(248,113,113,0.15); border:1px solid rgba(248,113,113,0.4); color:var(--red); }
+
+    /* Detail card */
+    .detail-card { background:var(--card); border:1px solid rgba(199,125,255,0.35); border-radius:14px; padding:24px 28px; margin-bottom:20px; position:relative; overflow:hidden; }
+    .detail-card::after { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%; background:radial-gradient(circle at 50% 50%,var(--glow2) 0%,transparent 60%); pointer-events:none; }
+    .detail-top { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+    .detail-room-label { font-size:10px; letter-spacing:3px; color:var(--accent); text-transform:uppercase; margin-bottom:4px; }
+    .detail-room-name { font-family:'Playfair Display',serif; font-size:26px; color:var(--text); }
+    .detail-spot-badge { background:rgba(199,125,255,0.12); border:1px solid rgba(199,125,255,0.4); border-radius:8px; padding:8px 14px; text-align:right; flex-shrink:0; }
+    .detail-spot-badge .spot-label { font-size:9px; letter-spacing:2px; color:var(--accent2); text-transform:uppercase; margin-bottom:3px; }
+    .detail-spot-badge .spot-name { font-size:14px; color:var(--text); }
+    .spots-section { margin-bottom:20px; }
+    .spots-title { font-size:9px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; margin-bottom:10px; }
+    .spot-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .spot-row-name { font-size:11px; color:var(--muted); width:170px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .spot-row.top-spot .spot-row-name { color:var(--accent2); }
+    .spot-mini-bar { flex:1; height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+    .spot-mini-fill { height:100%; background:rgba(255,255,255,0.18); border-radius:2px; transition:width 0.9s cubic-bezier(0.34,1.56,0.64,1); }
+    .spot-row.top-spot .spot-mini-fill { background:linear-gradient(90deg,var(--accent2),var(--accent)); box-shadow:0 0 6px var(--glow2); }
+    .spot-row-pct { font-size:11px; color:var(--muted); width:34px; text-align:right; flex-shrink:0; }
+    .spot-row.top-spot .spot-row-pct { color:var(--accent2); }
+    .verdict-label { font-size:10px; letter-spacing:3px; color:var(--accent2); text-transform:uppercase; margin-bottom:8px; }
+    .verdict-text { font-family:'Playfair Display',serif; font-size:18px; font-style:italic; color:var(--text); line-height:1.5; }
+
+    /* Buttons */
+    .btn-row { display:flex; gap:10px; }
+    .rescan-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:10px; padding:15px; background:transparent; border:1px solid rgba(255,255,255,0.15); border-radius:12px; color:var(--muted); font-family:'DM Mono',monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:all 0.3s ease; }
+    .rescan-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(255,140,66,0.05); }
+    .rescan-btn.spinning .spin-icon { animation:spin 1s linear infinite; }
+    .spin-icon { display:inline-block; }
+    .again-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:10px; padding:15px; background:rgba(199,125,255,0.08); border:1px solid rgba(199,125,255,0.35); border-radius:12px; color:var(--accent2); font-family:'DM Mono',monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:all 0.3s ease; }
+    .again-btn:hover { background:rgba(199,125,255,0.15); border-color:var(--accent2); transform:scale(1.01); }
+
+    .footer { text-align:center; margin-top:28px; font-size:11px; color:rgba(167,169,190,0.35); letter-spacing:1px; }
+
+    /* ── Animations ── */
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-20px);} to{opacity:1;transform:translateY(0);} }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(20px);}  to{opacity:1;transform:translateY(0);} }
+    @keyframes float    { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+    @keyframes catbob   { 0%,100%{transform:rotate(-5deg);} 50%{transform:rotate(5deg);} }
+    @keyframes spin     { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+    @keyframes pulse-glow  { 0%,100%{box-shadow:0 0 20px var(--glow);}  50%{box-shadow:0 0 45px var(--glow),0 0 70px rgba(255,140,66,0.08);} }
+    @keyframes pulse-green { 0%,100%{box-shadow:0 0 20px var(--glow-green);} 50%{box-shadow:0 0 45px var(--glow-green),0 0 70px rgba(74,222,128,0.08);} }
+    @keyframes popIn    { 0%{opacity:0;transform:scale(0.7);} 70%{transform:scale(1.08);} 100%{opacity:1;transform:scale(1);} }
+    @keyframes shake    { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(5px);} }
+
+    @media(max-width:600px) {
+      .guess-grid { grid-template-columns:1fr 1fr; }
+      .floorplan  { grid-template-columns:1fr 1fr; }
+      .room-wohnzimmer { grid-row:auto !important; }
+      .btn-row { flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header class="header">
+    <span class="cat-emoji">🐱</span>
+    <p class="eyebrow">Live-Tracking · Version 3.0</p>
+    <h1>Wo ist Luna?</h1>
+    <p class="subtitle">Rate zuerst — dann verrät der Algorithmus die Wahrheit</p>
+  </header>
+
+  <!-- Score -->
+  <div class="score-bar">
+    <div class="score-pill correct">✓ Richtig <span class="val" id="scoreCorrect">0</span></div>
+    <div class="score-pill wrong">✗ Falsch <span class="val" id="scoreWrong">0</span></div>
+    <div class="score-pill streak">🔥 Serie <span class="val" id="scoreStreak">0</span></div>
+  </div>
+
+  <!-- ══ PHASE 1: GUESS ══ -->
+  <div id="guessView">
+    <div class="guess-prompt">
+      <p>Wo versteckt sich Luna gerade?</p>
+      <strong>Wähle Zimmer & Versteck</strong>
+    </div>
+
+    <div class="guess-grid" id="guessGrid"></div>
+
+    <button class="guess-confirm" id="guessConfirm" onclick="confirmGuess()">
+      ✦ Analyse starten · Auflösen
+    </button>
+  </div>
+
+  <!-- ══ PHASE 2: RESULT ══ -->
+  <div id="resultView">
+
+    <div class="result-banner" id="resultBanner">
+      <div class="result-icon" id="resultIcon"></div>
+      <div>
+        <div class="result-title" id="resultTitle"></div>
+        <div class="result-sub" id="resultSub"></div>
+      </div>
+    </div>
+
+    <div class="total-warning">
+      <div>
+        <div class="label">Gesamtwahrscheinlichkeit</div>
+        <div class="total-display" id="totalDisplay">—<span>wird berechnet...</span></div>
+      </div>
+      <div class="never-hundred" id="neverHundred">✦ Luna bleibt ein Mysterium</div>
+    </div>
+
+    <div class="floorplan" id="floorplan">
+      <div class="room" data-room="schlafzimmer">
+        <div><div class="room-header"><span class="room-icon">🛏️</span><span class="room-name">Schlafzimmer</span></div><div class="room-spot" id="spot-schlafzimmer"></div></div>
+        <div><div class="room-prob" id="prob-schlafzimmer">—</div><div class="room-bar"><div class="room-bar-fill" id="bar-schlafzimmer" style="width:0%"></div></div></div>
+        <div class="cat-indicator">🐾</div>
+        <div class="guess-badge" id="badge-schlafzimmer"></div>
+      </div>
+      <div class="room" data-room="wohnzimmer" style="grid-row:1/3;">
+        <div><div class="room-header"><span class="room-icon">🛋️</span><span class="room-name">Wohnzimmer</span></div><div class="room-spot" id="spot-wohnzimmer"></div></div>
+        <div><div class="room-prob" id="prob-wohnzimmer">—</div><div class="room-bar"><div class="room-bar-fill" id="bar-wohnzimmer" style="width:0%"></div></div></div>
+        <div class="cat-indicator">🐾</div>
+        <div class="guess-badge" id="badge-wohnzimmer"></div>
+      </div>
+      <div class="room" data-room="arbeitszimmer">
+        <div><div class="room-header"><span class="room-icon">💻</span><span class="room-name">Arbeitszimmer</span></div><div class="room-spot" id="spot-arbeitszimmer"></div></div>
+        <div><div class="room-prob" id="prob-arbeitszimmer">—</div><div class="room-bar"><div class="room-bar-fill" id="bar-arbeitszimmer" style="width:0%"></div></div></div>
+        <div class="cat-indicator">🐾</div>
+        <div class="guess-badge" id="badge-arbeitszimmer"></div>
+      </div>
+      <div class="room" data-room="badezimmer">
+        <div><div class="room-header"><span class="room-icon">🚿</span><span class="room-name">Badezimmer</span></div><div class="room-spot" id="spot-badezimmer"></div></div>
+        <div><div class="room-prob" id="prob-badezimmer">—</div><div class="room-bar"><div class="room-bar-fill" id="bar-badezimmer" style="width:0%"></div></div></div>
+        <div class="cat-indicator">🐾</div>
+        <div class="guess-badge" id="badge-badezimmer"></div>
+      </div>
+      <div class="room" data-room="flur">
+        <div><div class="room-header"><span class="room-icon">🚪</span><span class="room-name">Flur</span></div><div class="room-spot" id="spot-flur"></div></div>
+        <div><div class="room-prob" id="prob-flur">—</div><div class="room-bar"><div class="room-bar-fill" id="bar-flur" style="width:0%"></div></div></div>
+        <div class="cat-indicator">🐾</div>
+        <div class="guess-badge" id="badge-flur"></div>
+      </div>
+      <div class="room" data-room="kueche">
+        <div><div class="room-header"><span class="room-icon">🍽️</span><span class="room-name">Küche</span></div><div class="room-spot" id="spot-kueche"></div></div>
+        <div><div class="room-prob" id="prob-kueche">—</div><div class="room-bar"><div class="room-bar-fill" id="bar-kueche" style="width:0%"></div></div></div>
+        <div class="cat-indicator">🐾</div>
+        <div class="guess-badge" id="badge-kueche"></div>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="detail-top">
+        <div>
+          <div class="detail-room-label">✦ Wahrscheinlichster Aufenthaltsort</div>
+          <div class="detail-room-name" id="detailRoomName">—</div>
+        </div>
+        <div class="detail-spot-badge">
+          <div class="spot-label">Versteck</div>
+          <div class="spot-name" id="detailSpotName">—</div>
+        </div>
+      </div>
+      <div class="spots-section" id="spotsSection"></div>
+      <div class="verdict-label">✦ Diagnose</div>
+      <div class="verdict-text" id="verdictText">Analyse läuft...</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="again-btn" onclick="playAgain()">↺ Nochmal raten</button>
+      <button class="rescan-btn" id="rescanBtn" onclick="rescan()">
+        <span class="spin-icon" id="spinIcon">↻</span>
+        <span>Neu scannen</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="footer">Luna-Tracker v3.0 · Genauigkeit: unbekannt · Katzen kooperieren grundsätzlich nicht</div>
+</div>
+
+<script>
+  // ── Data ─────────────────────────────────────────────────────────────────
+  const roomData = {
+    schlafzimmer: { label:'Schlafzimmer', icon:'🛏️', spots:[
+      { name:'Unterm Bett',        emoji:'🛏️', quip:'Liegt unterm Bett wie ein flauschiges U-Boot. Ansprechbar: nein.' },
+      { name:'Im Kleiderschrank',  emoji:'👗', quip:'Hat den Kleiderschrank beansprucht. Deine Pullover sind jetzt Katzenhaar-Träger.' },
+      { name:'Auf dem Kopfkissen', emoji:'😴', quip:'Auf deinem Kissen. Deiner Seite. Du schläfst heute woanders.' },
+    ]},
+    wohnzimmer: { label:'Wohnzimmer', icon:'🛋️', spots:[
+      { name:'In ihrer Kallax-Box', emoji:'📦', quip:'In der Kallax-Box — ihrem persönlichen Penthouse. Zutritt nur auf Einladung.' },
+      { name:'Auf dem Kratzbaum',   emoji:'🌳', quip:'Thront auf dem Kratzbaum wie eine kleine Königin. Urteilt von oben.' },
+      { name:'Auf dem Bücherregal', emoji:'📚', quip:'Hat das Bücherregal als Hochsitz entdeckt. Deine Bücher wurden kommentarlos verschoben.' },
+      { name:'Unterm Esstisch',     emoji:'🪑', quip:'Unterm Esstisch, wartend. Auf was? Wahrscheinlich auf nichts Gutes für dich.' },
+    ]},
+    arbeitszimmer: { label:'Arbeitszimmer', icon:'💻', spots:[
+      { name:'Im Regal',          emoji:'🗄️', quip:'Zwischen die Ordner gequetscht. Archiviert sich als "Wichtige Akte — nicht anfassen".' },
+      { name:'Im Katzenklo',      emoji:'🏠', quip:'Im Katzenklo und möchte allein sein. Bitte klopfen.' },
+      { name:'Auf der Tastatur',  emoji:'⌨️', quip:'Auf der Tastatur. Das letzte E-Mail hat sie gesendet. Der Chef hat geantwortet.' },
+    ]},
+    badezimmer: { label:'Badezimmer', icon:'🚿', spots:[
+      { name:'In der Badewanne',   emoji:'🛁', quip:'In der Badewanne — trocken natürlich. Schaut dich an als wärst du der Gast.' },
+      { name:'Unterm Hocker',      emoji:'🪑', quip:'Unter den Hocker gepresst. Kleinstmögliche Fläche. Maximale Mystik.' },
+      { name:'Hinter dem Vorhang', emoji:'🫣', quip:'Hinter dem Duschvorhang. Sie weiß, dass du sie siehst. Bewegt sich trotzdem nicht.' },
+    ]},
+    flur: { label:'Flur', icon:'🚪', spots:[
+      { name:'Unterm Kleiderständer', emoji:'🧥', quip:'Von Jacken umgeben. Perfekte Tarnung. Fast unsichtbar. Fast.' },
+      { name:'Im Karton',             emoji:'📦', quip:'Im Karton — weil ein Karton nun mal ein Karton ist. Luna kennt die Gesetze.' },
+      { name:'Vor der geschl. Tür',   emoji:'🚪', quip:'Sitzt vor der Tür. Will rein. Geht in 10 Sekunden wieder raus.' },
+    ]},
+    kueche: { label:'Küche', icon:'🍽️', spots:[
+      { name:'Auf dem Kühlschrank', emoji:'❄️', quip:'Auf dem Kühlschrank — wärmstes Plätzchen. Schaut auf alles herab.' },
+      { name:'Unter der Theke',     emoji:'🍳', quip:'Unter der Theke, positioniert für Essensreste die "zufällig" fallen.' },
+      { name:'Vor dem Napf',        emoji:'🥣', quip:'Sitzt vor dem Napf. Halbvoll. Sie lügt mit den Augen.' },
+    ]},
+  };
+
+  const resultMessages = {
+    roomCorrect_spotCorrect: {
+      icon:'🎯', cls:'correct',
+      titles:['Unglaublich!','Perfekter Treffer!','Du kennst Luna wirklich!'],
+      subs:['Zimmer UND Versteck — das ist schon fast Telepathie. Luna ist beeindruckt (gibt es aber nicht zu).']
+    },
+    roomCorrect_spotWrong: {
+      icon:'🟡', cls:'partial',
+      titles:['Halb richtig!','Fast perfekt!','Zimmer stimmt!'],
+      subs:['Das Zimmer war richtig, aber das Versteck hat sie gewechselt. Natürlich.']
+    },
+    roomWrong: {
+      icon:'❌', cls:'wrong',
+      titles:['Falsch geraten!','Luna war woanders!','Nicht mal nah dran!'],
+      subs:['Luna schaut dich von ihrem echten Versteck aus an und lacht innerlich.']
+    },
+  };
+
+  const disclaimers = [
+    '* Luna reserviert sich das Recht, woanders zu sein.',
+    '* Schrödingers Katze — Luna ist überall und nirgendwo.',
+    '* Letzte bestätigte Sichtung: nie.',
+    '* Genauigkeit ±∞ — Katzen folgen keiner Logik.',
+    '* Diese Analyse wurde von Luna nicht genehmigt.',
+  ];
+
+  const rooms = Object.keys(roomData);
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let guessRoom = null, guessSpot = null;
+  let lunaRoom = null, lunaSpot = null;
+  let score = { correct:0, wrong:0, streak:0 };
+
+  // ── Build guess grid ──────────────────────────────────────────────────────
+  function buildGuessGrid() {
+    const grid = document.getElementById('guessGrid');
+    grid.innerHTML = '';
+    guessRoom = null; guessSpot = null;
+    updateConfirmBtn();
+
+    rooms.forEach(rk => {
+      const rd = roomData[rk];
+      const card = document.createElement('div');
+      card.className = 'guess-room';
+      card.dataset.room = rk;
+
+      const spotsHTML = rd.spots.map((s, i) =>
+        `<div class="spot-option" data-room="${rk}" data-spot="${i}" onclick="selectSpot(event,'${rk}',${i})">${s.emoji} ${s.name}</div>`
+      ).join('');
+
+      card.innerHTML = `
+        <div class="guess-room-inner">
+          <span class="guess-room-icon">${rd.icon}</span>
+          <div class="guess-room-name">${rd.label}</div>
+          <div class="spot-options">${spotsHTML}</div>
+        </div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function selectSpot(e, roomKey, spotIdx) {
+    e.stopPropagation();
+    // Deselect all
+    document.querySelectorAll('.spot-option').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.guess-room').forEach(el => el.classList.remove('selected'));
+    // Select
+    e.currentTarget.classList.add('selected');
+    document.querySelector(`.guess-room[data-room="${roomKey}"]`).classList.add('selected');
+    guessRoom = roomKey;
+    guessSpot = spotIdx;
+    updateConfirmBtn();
+  }
+
+  function updateConfirmBtn() {
+    const btn = document.getElementById('guessConfirm');
+    btn.classList.toggle('ready', guessRoom !== null && guessSpot !== null);
+  }
+
+  // ── Confirm guess & reveal ────────────────────────────────────────────────
+  function confirmGuess() {
+    if (!guessRoom || guessSpot === null) return;
+
+    // Generate Luna's actual location
+    const { probs, topIdx } = randomProbs();
+    lunaRoom = rooms[topIdx];
+    lunaSpot = Math.floor(Math.random() * roomData[lunaRoom].spots.length);
+
+    // Switch views
+    document.getElementById('guessView').style.display = 'none';
+    const rv = document.getElementById('resultView');
+    rv.style.display = 'block';
+    rv.classList.add('visible');
+
+    // Show result banner
+    let msgKey;
+    if (guessRoom === lunaRoom && guessSpot === lunaSpot) msgKey = 'roomCorrect_spotCorrect';
+    else if (guessRoom === lunaRoom) msgKey = 'roomCorrect_spotWrong';
+    else msgKey = 'roomWrong';
+
+    const msg = resultMessages[msgKey];
+    const banner = document.getElementById('resultBanner');
+    banner.className = 'result-banner ' + msg.cls;
+    banner.style.animation = 'popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both';
+    document.getElementById('resultIcon').textContent = msg.icon;
+    document.getElementById('resultTitle').textContent = pick(msg.titles);
+    document.getElementById('resultSub').textContent = msg.subs[0];
+
+    // Update score
+    if (msgKey === 'roomCorrect_spotCorrect') { score.correct++; score.streak++; }
+    else if (msgKey === 'roomCorrect_spotWrong') { score.streak = Math.max(0, score.streak); }
+    else { score.wrong++; score.streak = 0; }
+    updateScore();
+
+    // Shake if wrong
+    if (msgKey === 'roomWrong') {
+      setTimeout(() => { banner.style.animation = 'shake 0.5s ease'; }, 100);
+    }
+
+    // Animate floor plan
+    const total = probs.reduce((a,b) => a+b, 0);
+    setTimeout(() => revealFloorplan(probs, topIdx, lunaSpot, total), 200);
+  }
+
+  function revealFloorplan(probs, topIdx, topSpotIdx, total) {
+    rooms.forEach((room, i) => {
+      const roomEl = document.querySelector(`[data-room="${room}"]`);
+      const spotIdx = (i === topIdx) ? topSpotIdx : Math.floor(Math.random() * roomData[room].spots.length);
+
+      setTimeout(() => {
+        animateNumber(document.getElementById(`prob-${room}`), probs[i]);
+        setTimeout(() => { document.getElementById(`bar-${room}`).style.width = probs[i] + '%'; }, 80);
+        document.getElementById(`spot-${room}`).textContent = `↳ ${roomData[room].spots[spotIdx].name}`;
+
+        // Mark guessed room
+        if (room === guessRoom && room === lunaRoom) {
+          roomEl.classList.add('guessed-correct');
+          document.getElementById(`badge-${room}`).textContent = '✓ Dein Tipp';
+        } else if (room === guessRoom && room !== lunaRoom) {
+          roomEl.classList.add('guessed-wrong');
+          document.getElementById(`badge-${room}`).textContent = '✗ Dein Tipp';
+        } else if (room === lunaRoom) {
+          roomEl.classList.add('active');
+        }
+      }, 100 + i * 120);
+    });
+
+    setTimeout(() => animateTotal(total), 300);
+    setTimeout(() => {
+      const topData = roomData[lunaRoom];
+      const topSpot = topData.spots[topSpotIdx];
+      document.getElementById('detailRoomName').textContent = topData.icon + ' ' + topData.label;
+      document.getElementById('detailSpotName').textContent = topSpot.emoji + ' ' + topSpot.name;
+      renderSpotBars(lunaRoom, topSpotIdx);
+      document.getElementById('verdictText').innerHTML =
+        `„${topSpot.quip}"<br><small style="font-size:12px;color:var(--muted);font-style:normal;margin-top:6px;display:block">${pick(disclaimers)}</small>`;
+    }, 500);
+
+    document.getElementById('neverHundred').textContent = total >= 95
+      ? '⚠ Zu nah an 100% — Luna spielt mit uns'
+      : total < 75 ? '🌙 Luna hat sich besonders gut versteckt' : '✦ Luna bleibt ein Mysterium';
+  }
+
+  // ── Play again ────────────────────────────────────────────────────────────
+  function playAgain() {
+    const rv = document.getElementById('resultView');
+    rv.style.display = 'none';
+    rv.classList.remove('visible');
+    document.getElementById('guessView').style.display = 'block';
+
+    // Reset rooms
+    rooms.forEach(r => {
+      const el = document.querySelector(`[data-room="${r}"]`);
+      el.classList.remove('active','guessed-correct','guessed-wrong');
+      document.getElementById(`prob-${r}`).textContent = '—';
+      document.getElementById(`bar-${r}`).style.width = '0%';
+      document.getElementById(`spot-${r}`).textContent = '';
+      document.getElementById(`badge-${r}`).textContent = '';
+    });
+
+    buildGuessGrid();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function rescan() {
+    const btn = document.getElementById('rescanBtn');
+    btn.classList.add('spinning'); btn.disabled = true;
+    rooms.forEach(r => {
+      const el = document.querySelector(`[data-room="${r}"]`);
+      el.classList.remove('active','guessed-correct','guessed-wrong');
+    });
+    setTimeout(() => {
+      const { probs, topIdx } = randomProbs();
+      lunaRoom = rooms[topIdx];
+      lunaSpot = Math.floor(Math.random() * roomData[lunaRoom].spots.length);
+      revealFloorplan(probs, topIdx, lunaSpot, probs.reduce((a,b)=>a+b,0));
+      btn.classList.remove('spinning'); btn.disabled = false;
+    }, 600);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function randomProbs() {
+    let raw = rooms.map(() => Math.random() * 35 + 5);
+    const topIdx = Math.floor(Math.random() * rooms.length);
+    raw[topIdx] = Math.random() * 28 + 38;
+    const sum = raw.reduce((a,b) => a+b, 0);
+    const target = 73 + Math.random() * 17;
+    let scaled = raw.map(v => Math.round(v * target / sum));
+    scaled = scaled.map(v => Math.min(58, Math.max(3, v)));
+    return { probs:scaled, topIdx };
+  }
+
+  function animateNumber(el, target) {
+    const start = parseInt(el.textContent) || 0;
+    const t0 = performance.now(), dur = 800;
+    (function tick(now) {
+      const p = Math.min((now-t0)/dur,1), e = 1-Math.pow(1-p,3);
+      el.textContent = Math.round(start+(target-start)*e)+'%';
+      if(p<1) requestAnimationFrame(tick);
+    })(t0);
+  }
+
+  function animateTotal(target) {
+    const t0 = performance.now(), dur = 900;
+    (function tick(now) {
+      const p = Math.min((now-t0)/dur,1), e = 1-Math.pow(1-p,3);
+      document.getElementById('totalDisplay').innerHTML =
+        `${Math.round(e*target)}%<span> von 100% · niemals erreicht</span>`;
+      if(p<1) requestAnimationFrame(tick);
+    })(t0);
+  }
+
+  function renderSpotBars(roomKey, topSpotIdx) {
+    const spots = roomData[roomKey].spots;
+    let raw = spots.map((_,i) => i===topSpotIdx ? Math.random()*25+38 : Math.random()*18+5);
+    const sum = raw.reduce((a,b)=>a+b,0), target = 55+Math.random()*25;
+    let pcts = raw.map(v => Math.max(3,Math.min(55,Math.round(v*target/sum))));
+    const sec = document.getElementById('spotsSection');
+    sec.innerHTML = `<div class="spots-title">Versteck-Analyse</div>`;
+    spots.forEach((spot,i) => {
+      const row = document.createElement('div');
+      row.className = 'spot-row'+(i===topSpotIdx?' top-spot':'');
+      row.innerHTML = `<div class="spot-row-name">${spot.emoji} ${spot.name}</div><div class="spot-mini-bar"><div class="spot-mini-fill" id="smf-${i}" style="width:0%"></div></div><div class="spot-row-pct">${pcts[i]}%</div>`;
+      sec.appendChild(row);
+      setTimeout(() => { document.getElementById(`smf-${i}`).style.width = pcts[i]+'%'; }, 80+i*90);
+    });
+  }
+
+  function updateScore() {
+    document.getElementById('scoreCorrect').textContent = score.correct;
+    document.getElementById('scoreWrong').textContent   = score.wrong;
+    document.getElementById('scoreStreak').textContent  = score.streak;
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  buildGuessGrid();
+</script>
+</body>
+</html>
